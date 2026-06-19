@@ -1,0 +1,86 @@
+name: Remote Local Sync Server
+
+on:
+  workflow_dispatch: # يتيح لك تشغيل السيرفر بضغطة زر من الجوال
+
+jobs:
+  run-server:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-on-version: '20'
+
+    - name: Install Dependencies
+      run: |
+        npm install express socket.io localtunnel
+
+    - name: Create Server Files
+      run: |
+        cat << 'EOF' > server.js
+        const express = require('express');
+        const app = express();
+        const http = require('http').createServer(app);
+        const io = require('socket.io')(http, { cors: { origin: "*" } });
+
+        app.get('/', (req, res) => {
+            res.send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Local Sync Player</title>
+                    <style>
+                        body { background: #050505; color: #00ff00; font-family: monospace; text-align: center; padding-top: 50px; }
+                        video { width: 80%; border: 2px solid #00ff00; box-shadow: 0 0 15px #00ff00; }
+                    </style>
+                    <script src="/socket.io/socket.io.js"></script>
+                </head>
+                <body>
+                    <h2>REMOTE_SYNC_OK</h2>
+                    <video id="shared-video" controls src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"></video>
+                    <script>
+                        const socket = io();
+                        const video = document.getElementById('shared-video');
+                        let isSyncing = false;
+
+                        function sendEvent(action) {
+                            if (isSyncing) return;
+                            socket.emit('sync-video', { action, currentTime: video.currentTime });
+                        }
+
+                        video.addEventListener('play', () => sendEvent('play'));
+                        video.addEventListener('pause', () => sendEvent('pause'));
+                        video.addEventListener('seeked', () => sendEvent('seeked'));
+
+                        socket.on('update-video', (data) => {
+                            isSyncing = true;
+                            if (Math.abs(video.currentTime - data.currentTime) > 0.5) video.currentTime = data.currentTime;
+                            if (data.action === 'play' && video.paused) video.play();
+                            else if (data.action === 'pause' && !video.paused) video.pause();
+                            setTimeout(() => { isSyncing = false; }, 100);
+                        });
+                    </script>
+                </body>
+                </html>
+            `);
+        });
+
+        io.on('connection', (socket) => {
+            socket.on('sync-video', (data) => { socket.broadcast.emit('update-video', data); });
+        });
+
+        http.listen(3000, () => console.log('Internal server ready on port 3000'));
+        EOF
+
+    - name: Start Server and Tunnel
+      run: |
+        # تشغيل السيرفر في الخلفية
+        node server.js &
+        sleep 3
+        # فتح السيرفر الداخلي للعالم الخارجي عبر منفذ 3000
+        npx localtunnel --port 3000
