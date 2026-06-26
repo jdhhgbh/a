@@ -17,6 +17,7 @@ def main():
     print(f"-> جاري تشغيل المتصفح الخفي للتسجيل بالإيميل: {email}")
     
     with sync_playwright() as p:
+        # تشغيل المتصفح الخفي بمحاكاة جهاز كمبيوتر عادي لتفادي مشاكل القوائم
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -25,63 +26,51 @@ def main():
         page = context.new_page()
         
         try:
-            # دخول الموقع والانتظار حتى استقرار الصفحة
-            page.goto(url, wait_until="load")
-            page.wait_for_timeout(4000) 
+            # دخول الموقع والانتظار حتى استقرار الصفحة بالكامل
+            page.goto(url, wait_until="networkidle")
+            page.wait_for_timeout(5000) 
             
             print("1. جاري تعبئة الحقول الأساسية...")
             
-            # تعبئة الاسم والإيميل
+            # 1. تعبئة الاسم والإيميل
             page.locator('[name="wpforms[fields][1]"]').fill(name)
             page.locator('[name="wpforms[fields][2]"]').fill(email)
             
-            # تعبئة حقل الدولة بمرونة
+            # 2. اختيار الدولة من القائمة المنسدلة (Saudi Arabia)
+            print("-> جاري تحديد الدولة...")
             country_field = page.locator('[name="wpforms[fields][34]"]')
-            if country_field.count() > 0:
-                tag_name = country_field.evaluate("el => el.tagName.toLowerCase()")
-                if tag_name == "select":
-                    country_field.select_option(label="Saudi Arabia")
-                else:
-                    country_field.fill("Saudi Arabia")
+            country_field.scroll_into_view_if_needed()
+            # نحاول نختار بالـ Label أو القيمة المباشرة
+            try:
+                country_field.select_option(label="Saudi Arabia")
+            except:
+                country_field.select_option(value="Saudi Arabia")
+                
+            page.wait_for_timeout(1500)
             
-            # اختيار VLC / Laptop لتفادي طلب الـ MAC Address الإجباري
-            print("-> اختيار نوع الجهاز: VLC Player / Laptop")
-            page.locator('[name="wpforms[fields][5]"]').select_option(label="VLC Player / Laptop")
-            page.wait_for_timeout(1500) # انتظار ثانية لتحديث الصفحة ديناميكياً
+            # ملاحظة: نوع الجهاز (Android Box) والتطبيق (Iptv Smarters Pro) محددين تلقائياً كخيار أول فما نلمسهم لتفادي التعليق
             
-            # التعامل مع الحقل 8 بذكاء (سواء تحول لنص أو بقى قائمة)
-            field_8 = page.locator('[name="wpforms[fields][8]"]')
-            if field_8.count() > 0:
-                tag_8 = field_8.evaluate("el => el.tagName.toLowerCase()")
-                if tag_8 == "select":
-                    field_8.select_option(label="Iptv Smarters Pro")
-                else:
-                    field_8.fill("IPTV M3U Playlist")
-            
-            # خيارات القنوات وتفعيل الـ Adult 
+            # 3. خيارات القنوات والـ Adult (تفعيل الـ Adult بالتأكيد 😉)
+            print("-> جاري تفعيل خيارات القنوات والـ Adult...")
             page.locator('[name="wpforms[fields][14]"][value="All Playlist"]').check()
             page.locator('[name="wpforms[fields][24]"][value="Yes"]').check()
             
-            # تشييك الحقل 15 الإجباري إن وجد
-            checkbox_15 = page.locator('[name^="wpforms[fields][15]"]').first
-            if checkbox_15.count() > 0:
-                checkbox_15.check()
+            # 4. الملاحظة
+            page.locator('[name="wpforms[fields][23]"]').fill("Please send the complete package.")
             
-            # الملاحظة
-            page.locator('[name="wpforms[fields][23]"]').fill("Please send the complete M3U playlist with adult channels.")
-            
-            print("2. جاري إرسال الفورم ومحاكاة الضغط البشري الحقيقي...")
+            print("2. جاري إرسال الفورم ومحاكاة الضغط البشري...")
+            # البحث عن زر الـ Submit والضغط عليه
             submit_btn = page.locator('button[type="submit"], .wpforms-submit')
             submit_btn.first.click()
             
-            # انتظار 8 ثواني للتأكد من إتمام الإرسال وظهور رسالة النجاح
-            page.wait_for_timeout(8000)
+            # انتظار كافي حتى يتم الإرسال وظهور رسالة النجاح (10 ثواني)
+            page.wait_for_timeout(10000)
             
             content = page.content()
             if "wpforms-confirmation" in content or "thank" in content.lower() or "successfully" in content.lower():
                 print("\n✅ ملووووز الملووز! تم ترويض الموقع والتسجيل بنجاح، شيك بريدك الحين!")
             else:
-                print("\n⚠️ تم ضغط الزر، يرجى مراجعة البريد للتأكد من وصول الرابط.")
+                print("\n⚠️ تم ضغط الزر، يرجى مراجعة البريد للتأكد من وصول الرابط الحين بالخلفية.")
                 
         except Exception as e:
             print(f"❌ حدث خطأ أثناء التنفيذ: {str(e)}")
