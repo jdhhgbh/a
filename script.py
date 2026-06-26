@@ -1,8 +1,7 @@
-import requests
-from bs4 import BeautifulSoup
 import random
 import string
 import sys
+from playwright.sync_api import sync_playwright
 
 def generate_random_string(length=6):
     letters = string.ascii_lowercase + string.digits
@@ -10,63 +9,69 @@ def generate_random_string(length=6):
 
 def main():
     url = "https://protoiptv.com/2026-iptvtrial-free-pro/"
-    ajax_url = "https://protoiptv.com/wp-admin/admin-ajax.php"
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
-        "Referer": url,
-        "X-Requested-With": "XMLHttpRequest",
-        "Origin": "https://protoiptv.com"
-    }
+    random_part = generate_random_string(6)
+    email = f"zwri+{random_part}@outlook.sa"
+    name = f"Ismail_{generate_random_string(4)}"
     
-    session = requests.Session()
+    print(f"-> جاري تشغيل المتصفح الخفي للتسجيل بالإيميل: {email}")
     
-    try:
-        print("1. جاري دخول الموقع وجلب التوكن الحقيقي...")
-        response = session.get(url, headers={"User-Agent": headers["User-Agent"]})
-        soup = BeautifulSoup(response.text, 'html.parser')
+    with sync_playwright() as p:
+        # تشغيل متصفح خفي كأنه جهاز حقيقي
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+            viewport={"width": 390, "height": 844},
+            is_mobile=True
+        )
+        page = context.new_page()
         
-        nonce = ""
-        nonce_tag = soup.find("input", attrs={"name": "wpforms[nonce]"})
-        if nonce_tag:
-            nonce = nonce_tag.get("value", "")
-        
-        random_part = generate_random_string(6)
-        email = f"zwri+{random_part}@outlook.sa"
-        name = f"Ismail_{generate_random_string(4)}"
-        
-        # بناء الحقول المطابقة تماماً لطلب الـ AJAX مع تفعيل قنوات الـ Adult
-        form_data = {
-            "wpforms[id]": "541",
-            "wpforms[author]": "1",
-            "wpforms[fields][1]": name,
-            "wpforms[fields][34]": "Saudi Arabia",
-            "wpforms[fields][2]": email,
-            "wpforms[fields][5]": "Android Box",
-            "wpforms[fields][8]": "Iptv Smarters Pro",
-            "wpforms[fields][14]": "All Playlist",
-            "wpforms[fields][24]": "Yes",  # تم التعديل إلى Yes لفتح قنوات الـ Adult 😉
-            "wpforms[fields][23]": "Trial Request with adult channels",
-            "wpforms[fields][39]": "",  # مصيدة البوتات تترك فارغة تماماً
-            "action": "wpforms_submit",
-            "page_id": "1342",
-            "wpforms[nonce]": nonce
-        }
-        
-        print(f"-> جاري إرسال الطلب للإيميل: {email}")
-        post_response = session.post(ajax_url, data=form_data, headers=headers)
-        
-        print(f"-> رد السيرفر: {post_response.text}")
-        
-        if "success" in post_response.text.lower():
-            print("\n✅ تم التسجيل بنجاح ملوّز وتفعيل الباقة الكاملة! شيك على بريدك الآن.")
-        else:
-            print("\n⚠️ تم الإرسال ولكن تحقق من رد السيرفر أعلاه.")
+        try:
+            # دخول الموقع والانتظار لين يحمل بالكامل ويشغل الـ JS
+            page.goto(url, wait_until="networkidle")
+            page.wait_for_timeout(3000) # انتظار 3 ثواني إضافية لضمان توليد توكن الحماية
             
-    except Exception as e:
-        print(f"❌ حدث خطأ: {str(e)}")
+            print("1. جاري تعبئة الحقول داخل المتصفح...")
+            
+            # تعبئة الحقول الأساسية بناءً على المعرفات الرقمية لـ WPForms
+            page.fill('input[name="wpforms[fields][1]"]', name) # الاسم
+            page.fill('input[name="wpforms[fields][34]"]', "Saudi Arabia") # الدولة
+            page.fill('input[name="wpforms[fields][2]"]', email) # الإيميل
+            
+            # اختيار نوع الجهاز وتطبيق الـ IPTV من القوائم المنسدلة
+            page.select_option('select[name="wpforms[fields][5]"]', label="Android Box")
+            page.select_option('select[name="wpforms[fields][8]"]', label="Iptv Smarters Pro")
+            
+            # اختيار نوع القنوات (All Playlist) والـ Adult (Yes) عبر أزرار الراديو
+            page.check('input[name="wpforms[fields][14]"][value="All Playlist"]')
+            page.check('input[name="wpforms[fields][24]"][value="Yes"]') # تفعيل الـ Adult 😉
+            
+            # تعبئة الحقل 15 الإجباري (اختيار باقات فرعية إن وجدت، نحدد أول خيار)
+            checkbox_15 = page.locator('input[name^="wpforms[fields][15]"]').first
+            if checkbox_15.count() > 0:
+                checkbox_15.check()
+                print("-> تم تفعيل الحقل الإجباري رقم 15")
+                
+            page.fill('textarea[name="wpforms[fields][23]"]', "Please send me the full playlist with adult channels.") # الملاحظة
+            
+            print("2. جاري إرسال الفورم ومحاكاة الضغط البشري...")
+            # الضغط على زر الإرسال
+            page.click('button[type="submit"]')
+            
+            # الانتظار 5 ثواني حتى تظهر رسالة النجاح في الصفحة
+            page.wait_for_timeout(5000)
+            
+            # طباعة محتوى الصفحة أو التأكيد لمعرفة النتيجة
+            content = page.content()
+            if "wpforms-confirmation" in content or "thank" in content.lower() or "successfully" in content.lower():
+                print("\n✅ كفوووو تم اختراق الحماية والتسجيل بنجاح ملوّز عن طريق المتصفح! شيك إيميلك الحين.")
+            else:
+                print("\n⚠️ تم ضغط الزر، لكن يرجى مراجعة حالة الصفحة للتأكد.")
+                
+        except Exception as e:
+            print(f"❌ حدث خطأ أثناء محاكاة المتصفح: {str(e)}")
+        finally:
+            browser.close()
 
 if __name__ == "__main__":
     main()
