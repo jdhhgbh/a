@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import random
 import string
 import sys
-import json
 
 def generate_random_string(length=6):
     letters = string.ascii_lowercase + string.digits
@@ -11,7 +10,6 @@ def generate_random_string(length=6):
 
 def main():
     url = "https://protoiptv.com/2026-iptvtrial-free-pro/"
-    # رابط إرسال البيانات المباشر الخاص بإضافة WPForms AJAX
     ajax_url = "https://protoiptv.com/wp-admin/admin-ajax.php"
     
     headers = {
@@ -26,21 +24,20 @@ def main():
     session = requests.Session()
     
     try:
-        # 1. دخول الصفحة كزائر حقيقي لبدء الجلسة وجلب الكوكيز والـ Tokens
-        print("1. جاري جلب ملفات تعريف الارتباط والتوكن من الموقع...")
+        print("1. جاري دخول الموقع وجلب التوكن الحقيقي...")
         response = session.get(url, headers={"User-Agent": headers["User-Agent"]})
         soup = BeautifulSoup(response.text, 'html.parser')
-        form = soup.find('form', id=lambda x: x and x.startswith('wpforms-form-'))
         
-        if not form:
-            print("❌ لم يتم العثور على فورم WPForms!")
-            sys.exit(1)
-            
+        nonce = ""
+        nonce_tag = soup.find("input", attrs={"name": "wpforms[nonce]"})
+        if nonce_tag:
+            nonce = nonce_tag.get("value", "")
+        
         random_part = generate_random_string(6)
         email = f"zwri+{random_part}@outlook.sa"
         name = f"Ismail_{generate_random_string(4)}"
         
-        # 2. بناء الحقول المطابقة تماماً لطلب الـ AJAX الصحيح
+        # بناء الحقول المطابقة تماماً لطلب الـ AJAX مع تفعيل قنوات الـ Adult
         form_data = {
             "wpforms[id]": "541",
             "wpforms[author]": "1",
@@ -50,36 +47,26 @@ def main():
             "wpforms[fields][5]": "Android Box",
             "wpforms[fields][8]": "Iptv Smarters Pro",
             "wpforms[fields][14]": "All Playlist",
-            "wpforms[fields][24]": "No",
-            "wpforms[fields][23]": "Trial Request",
-            "wpforms[fields][39]": "",  # حقل الـ HoneyPot المخفي (يجب أن يترك فارغاً تماماً لخداع الموقع)
-            "action": "wpforms_submit", # الأكشن الأساسي لـ WPForms AJAX
-            "page_id": "1342"
+            "wpforms[fields][24]": "Yes",  # تم التعديل إلى Yes لفتح قنوات الـ Adult 😉
+            "wpforms[fields][23]": "Trial Request with adult channels",
+            "wpforms[fields][39]": "",  # مصيدة البوتات تترك فارغة تماماً
+            "action": "wpforms_submit",
+            "page_id": "1342",
+            "wpforms[nonce]": nonce
         }
         
-        # جلب التوكن المخفي التلقائي (wpforms[nonce]) إن وجد في الصفحة
-        nonce_input = soup.find('input', name=lambda x: x and 'nonce' in x)
-        if nonce_input:
-            form_data[nonce_input['name']] = nonce_input.get('value', '')
-            
-        print(f"-> جاري التسجيل بالبريد: {email}")
-        
-        # 3. إرسال طلب الـ AJAX الفعلي محاكاة لضغطة الـ Submit يدوياً
-        print("2. جاري إرسال الطلب عبر بوابة AJAX...")
+        print(f"-> جاري إرسال الطلب للإيميل: {email}")
         post_response = session.post(ajax_url, data=form_data, headers=headers)
         
-        print(f"-> رمز الاستجابة: {post_response.status_code}")
-        print("--- الرد المباشر من السيرفر ---")
-        print(post_response.text)
+        print(f"-> رد السيرفر: {post_response.text}")
         
-        # التحقق من أن السيرفر أكد استلام الحقول وأرسل النجاح
-        if "success" in post_response.text.lower() or '"success":true' in post_response.text.replace(" ", ""):
-            print("\n✅ ملووووز الملووز! تم الاختراق بنجاح كأنك أرسلته بيدك، شيك بريدك الآن.")
+        if "success" in post_response.text.lower():
+            print("\n✅ تم التسجيل بنجاح ملوّز وتفعيل الباقة الكاملة! شيك على بريدك الآن.")
         else:
-            print("\n⚠️ تم الإرسال ولكن رد الموقع غير مؤكد، يرجى فحص الرد أعلاه.")
+            print("\n⚠️ تم الإرسال ولكن تحقق من رد السيرفر أعلاه.")
             
     except Exception as e:
-        print(f"❌ حدث خطأ أثناء التنفيذ: {str(e)}")
+        print(f"❌ حدث خطأ: {str(e)}")
 
 if __name__ == "__main__":
     main()
