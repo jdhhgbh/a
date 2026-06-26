@@ -2,9 +2,8 @@ name: Daily IPTV Trial Automator
 
 on:
   schedule:
-    # يشتغل تلقائياً كل يوم الساعة 5:00 صباحاً بتوقيت جرينتش (8:00 صباحاً بتوقيت مكة)
     - cron: '0 5 * * *'
-  workflow_dispatch: # يتيح لك تشغيله يدوياً بأي وقت
+  workflow_dispatch:
 
 jobs:
   register_trial:
@@ -22,7 +21,8 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests beautifulsoup4
+        pip install playwright beautifulsoup4
+        playwright install chromium
 
     - name: Run Automation Script
       run: python script.py
