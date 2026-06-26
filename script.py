@@ -25,17 +25,17 @@ def main():
         page = context.new_page()
         
         try:
-            # دخول الموقع والانتظار حتى يستقر الاتصال
+            # دخول الموقع والانتظار حتى استقرار الصفحة
             page.goto(url, wait_until="load")
             page.wait_for_timeout(4000) 
             
             print("1. جاري تعبئة الحقول الأساسية...")
             
-            # استخدامselectors مرنة للوصول للحقول مباشرة بأسماء الحقول التابعة لـ WPForms
-            page.locator('[name="wpforms[fields][1]"]').fill(name) # الاسم
-            page.locator('[name="wpforms[fields][2]"]').fill(email) # الإيميل
+            # تعبئة الاسم والإيميل
+            page.locator('[name="wpforms[fields][1]"]').fill(name)
+            page.locator('[name="wpforms[fields][2]"]').fill(email)
             
-            # تعبئة حقل الدولة بمرونة (سواء كان اختيار أو كتابة)
+            # تعبئة حقل الدولة بمرونة
             country_field = page.locator('[name="wpforms[fields][34]"]')
             if country_field.count() > 0:
                 tag_name = country_field.evaluate("el => el.tagName.toLowerCase()")
@@ -44,38 +44,47 @@ def main():
                 else:
                     country_field.fill("Saudi Arabia")
             
-            # اختيار الأجهزة والتطبيقات
-            page.locator('[name="wpforms[fields][5]"]').select_option(label="Android Box")
-            page.locator('[name="wpforms[fields][8]"]').select_option(label="Iptv Smarters Pro")
+            # اختيار VLC / Laptop لتفادي طلب الـ MAC Address الإجباري
+            print("-> اختيار نوع الجهاز: VLC Player / Laptop")
+            page.locator('[name="wpforms[fields][5]"]').select_option(label="VLC Player / Laptop")
+            page.wait_for_timeout(1500) # انتظار ثانية لتحديث الصفحة ديناميكياً
             
-            # خيارات القنوات والـ Adult (نعم بالتأكيد 😉)
+            # التعامل مع الحقل 8 بذكاء (سواء تحول لنص أو بقى قائمة)
+            field_8 = page.locator('[name="wpforms[fields][8]"]')
+            if field_8.count() > 0:
+                tag_8 = field_8.evaluate("el => el.tagName.toLowerCase()")
+                if tag_8 == "select":
+                    field_8.select_option(label="Iptv Smarters Pro")
+                else:
+                    field_8.fill("IPTV M3U Playlist")
+            
+            # خيارات القنوات وتفعيل الـ Adult 
             page.locator('[name="wpforms[fields][14]"][value="All Playlist"]').check()
             page.locator('[name="wpforms[fields][24]"][value="Yes"]').check()
             
-            # حقل 15 الإجباري تفعيله إذا كان متواجداً
+            # تشييك الحقل 15 الإجباري إن وجد
             checkbox_15 = page.locator('[name^="wpforms[fields][15]"]').first
             if checkbox_15.count() > 0:
                 checkbox_15.check()
             
             # الملاحظة
-            page.locator('[name="wpforms[fields][23]"]').fill("Please send the complete package.")
+            page.locator('[name="wpforms[fields][23]"]').fill("Please send the complete M3U playlist with adult channels.")
             
-            print("2. جاري إرسال الفورم ومحاكاة الضغط الحقيقي...")
-            # البحث عن زر السمت والضغط عليه
+            print("2. جاري إرسال الفورم ومحاكاة الضغط البشري الحقيقي...")
             submit_btn = page.locator('button[type="submit"], .wpforms-submit')
             submit_btn.first.click()
             
-            # انتظار النتيجة لمدة 6 ثواني
-            page.wait_for_timeout(6000)
+            # انتظار 8 ثواني للتأكد من إتمام الإرسال وظهور رسالة النجاح
+            page.wait_for_timeout(8000)
             
             content = page.content()
             if "wpforms-confirmation" in content or "thank" in content.lower() or "successfully" in content.lower():
-                print("\n✅ ملوّز الملوّز! تم تجاوز التايم أوت والحماية بالكامل، تفقد بريدك الآن.")
+                print("\n✅ ملووووز الملووز! تم ترويض الموقع والتسجيل بنجاح، شيك بريدك الحين!")
             else:
-                print("\n⚠️ تم الضغط على الزر، شيك على البريد تحسباً لنجاح الإرسال بالخلفية.")
+                print("\n⚠️ تم ضغط الزر، يرجى مراجعة البريد للتأكد من وصول الرابط.")
                 
         except Exception as e:
-            print(f"❌ حدث خطأ أثناء تنفيذ المتصفح: {str(e)}")
+            print(f"❌ حدث خطأ أثناء التنفيذ: {str(e)}")
         finally:
             browser.close()
 
