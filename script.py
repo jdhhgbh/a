@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import random
 import string
 import sys
+import json
 
 def generate_random_string(length=6):
     letters = string.ascii_lowercase + string.digits
@@ -10,74 +11,75 @@ def generate_random_string(length=6):
 
 def main():
     url = "https://protoiptv.com/2026-iptvtrial-free-pro/"
+    # رابط إرسال البيانات المباشر الخاص بإضافة WPForms AJAX
+    ajax_url = "https://protoiptv.com/wp-admin/admin-ajax.php"
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
         "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
-        "Referer": url
+        "Referer": url,
+        "X-Requested-With": "XMLHttpRequest",
+        "Origin": "https://protoiptv.com"
     }
     
     session = requests.Session()
     
     try:
-        response = session.get(url, headers=headers)
+        # 1. دخول الصفحة كزائر حقيقي لبدء الجلسة وجلب الكوكيز والـ Tokens
+        print("1. جاري جلب ملفات تعريف الارتباط والتوكن من الموقع...")
+        response = session.get(url, headers={"User-Agent": headers["User-Agent"]})
         soup = BeautifulSoup(response.text, 'html.parser')
-        form = soup.find('form')
+        form = soup.find('form', id=lambda x: x and x.startswith('wpforms-form-'))
         
         if not form:
-            print("لم يتم العثور على الفورم!")
+            print("❌ لم يتم العثور على فورم WPForms!")
             sys.exit(1)
             
         random_part = generate_random_string(6)
         email = f"zwri+{random_part}@outlook.sa"
         name = f"Ismail_{generate_random_string(4)}"
         
-        # تعبئة الحقول بناءً على أرقام WPForms الصحيحة للموقع
+        # 2. بناء الحقول المطابقة تماماً لطلب الـ AJAX الصحيح
         form_data = {
-            "wpforms[fields][1]": name,                  # Name
-            "wpforms[fields][34]": "Saudi Arabia",       # Country
-            "wpforms[fields][2]": email,                 # Email
-            "wpforms[fields][5]": "Android Box",          # Device Type
-            "wpforms[fields][8]": "Iptv Smarters Pro",   # IPTV Application
-            "wpforms[fields][14]": "All Playlist",       # Channels Selection
-            "wpforms[fields][24]": "No",                 # Adult Channels
-            "wpforms[fields][23]": "Please send the trial", # Note
-            "wpforms[fields][39]": "Free Trial Request"   # Single Line Text
+            "wpforms[id]": "541",
+            "wpforms[author]": "1",
+            "wpforms[fields][1]": name,
+            "wpforms[fields][34]": "Saudi Arabia",
+            "wpforms[fields][2]": email,
+            "wpforms[fields][5]": "Android Box",
+            "wpforms[fields][8]": "Iptv Smarters Pro",
+            "wpforms[fields][14]": "All Playlist",
+            "wpforms[fields][24]": "No",
+            "wpforms[fields][23]": "Trial Request",
+            "wpforms[fields][39]": "",  # حقل الـ HoneyPot المخفي (يجب أن يترك فارغاً تماماً لخداع الموقع)
+            "action": "wpforms_submit", # الأكشن الأساسي لـ WPForms AJAX
+            "page_id": "1342"
         }
         
-        # جلب الحقول المخفية التلقائية من الفورم (الـ ID والـ Tokens)
-        print("--- جاري تجميع الحقول المخفية ---")
-        for input_tag in form.find_all('input'):
-            name_attr = input_tag.get('name')
-            if name_attr and name_attr not in form_data:
-                # التحقق من الراديو أو الـ Checkbox الافتراضي
-                if input_tag.get('type') in ['radio', 'checkbox']:
-                    if input_tag.has_attr('checked'):
-                        form_data[name_attr] = input_tag.get('value', '')
-                else:
-                    form_data[name_attr] = input_tag.get('value', '')
+        # جلب التوكن المخفي التلقائي (wpforms[nonce]) إن وجد في الصفحة
+        nonce_input = soup.find('input', name=lambda x: x and 'nonce' in x)
+        if nonce_input:
+            form_data[nonce_input['name']] = nonce_input.get('value', '')
+            
+        print(f"-> جاري التسجيل بالبريد: {email}")
         
-        # طباعة الحقول للتأكد قبل الإرسال
-        for k, v in form_data.items():
-            print(f"{k}: {v}")
-
-        action = form.get('action', url)
-        if not action.startswith('http'):
-            action = "https://protoiptv.com" + action if action.startswith('/') else url
-                
-        print("\nجاري إرسال الطلب الصحيح والمكتمل إلى السيرفر...")
-        post_response = session.post(action, data=form_data, headers=headers)
+        # 3. إرسال طلب الـ AJAX الفعلي محاكاة لضغطة الـ Submit يدوياً
+        print("2. جاري إرسال الطلب عبر بوابة AJAX...")
+        post_response = session.post(ajax_url, data=form_data, headers=headers)
         
-        print(f"رمز استجابة الموقع (Status Code): {post_response.status_code}")
+        print(f"-> رمز الاستجابة: {post_response.status_code}")
+        print("--- الرد المباشر من السيرفر ---")
+        print(post_response.text)
         
-        if "wpforms-confirmation" in post_response.text or "Thank you" in post_response.text or post_response.status_code == 200:
-            print("\n✅ تم إرسال جميع الحقول بنجاح ملوّز! شيك على إيميلك الآن.")
+        # التحقق من أن السيرفر أكد استلام الحقول وأرسل النجاح
+        if "success" in post_response.text.lower() or '"success":true' in post_response.text.replace(" ", ""):
+            print("\n✅ ملووووز الملووز! تم الاختراق بنجاح كأنك أرسلته بيدك، شيك بريدك الآن.")
         else:
-            print("\n❌ تم الإرسال ولكن قد يكون هناك نقص في التوثيق.")
+            print("\n⚠️ تم الإرسال ولكن رد الموقع غير مؤكد، يرجى فحص الرد أعلاه.")
             
     except Exception as e:
-        print(f"حدث خطأ أثناء التنفيذ: {str(e)}")
+        print(f"❌ حدث خطأ أثناء التنفيذ: {str(e)}")
 
 if __name__ == "__main__":
     main()
