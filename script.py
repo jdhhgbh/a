@@ -26,56 +26,56 @@ def main():
         form = soup.find('form')
         
         if not form:
-            print("لم يتم العثور على الفورم في الصفحة!")
+            print("لم يتم العثور على الفورم!")
             sys.exit(1)
             
         random_part = generate_random_string(6)
         email = f"zwri+{random_part}@outlook.sa"
         name = f"Ismail_{generate_random_string(4)}"
         
-        form_data = {}
-        print("--- جاري تجميع الحقول وتعبئتها ---")
+        # تعبئة الحقول بناءً على أرقام WPForms الصحيحة للموقع
+        form_data = {
+            "wpforms[fields][1]": name,                  # Name
+            "wpforms[fields][34]": "Saudi Arabia",       # Country
+            "wpforms[fields][2]": email,                 # Email
+            "wpforms[fields][5]": "Android Box",          # Device Type
+            "wpforms[fields][8]": "Iptv Smarters Pro",   # IPTV Application
+            "wpforms[fields][14]": "All Playlist",       # Channels Selection
+            "wpforms[fields][24]": "No",                 # Adult Channels
+            "wpforms[fields][23]": "Please send the trial", # Note
+            "wpforms[fields][39]": "Free Trial Request"   # Single Line Text
+        }
         
-        # التقاط جميع المدخلات بما فيها المخفية التابعة لـ Forminator
-        for input_tag in form.find_all(['input', 'select', 'textarea']):
+        # جلب الحقول المخفية التلقائية من الفورم (الـ ID والـ Tokens)
+        print("--- جاري تجميع الحقول المخفية ---")
+        for input_tag in form.find_all('input'):
             name_attr = input_tag.get('name')
-            if not name_attr:
-                continue
-                
-            value_attr = input_tag.get('value', '')
-            
-            # تعبئة الحقول الأساسية بناءً على الأسماء المتوقعة
-            if 'email' in name_attr.lower() or input_tag.get('type') == 'email':
-                form_data[name_attr] = email
-            elif 'name' in name_attr.lower() and 'form_id' not in name_attr.lower():
-                form_data[name_attr] = name
-            elif 'country' in name_attr.lower():
-                form_data[name_attr] = "Saudi Arabia"
-            elif 'device' in name_attr.lower() or 'type' in name_attr.lower():
-                form_data[name_attr] = "Android Box"
-            elif 'application' in name_attr.lower() or 'iptv' in name_attr.lower():
-                form_data[name_attr] = "Iptv Smarters Pro"
-            elif 'playlist' in name_attr.lower() or 'channel' in name_attr.lower():
-                form_data[name_attr] = value_attr if value_attr else "All Playlist"
-            elif 'adult' in name_attr.lower():
-                form_data[name_attr] = "No"
-            else:
-                # الحقول المخفية والـ tokens نأخذ قيمتها الافتراضية كما هي من الموقع
-                form_data[name_attr] = value_attr
-                
-            print(f"{name_attr}: {form_data[name_attr]}")
+            if name_attr and name_attr not in form_data:
+                # التحقق من الراديو أو الـ Checkbox الافتراضي
+                if input_tag.get('type') in ['radio', 'checkbox']:
+                    if input_tag.has_attr('checked'):
+                        form_data[name_attr] = input_tag.get('value', '')
+                else:
+                    form_data[name_attr] = input_tag.get('value', '')
+        
+        # طباعة الحقول للتأكد قبل الإرسال
+        for k, v in form_data.items():
+            print(f"{k}: {v}")
 
         action = form.get('action', url)
         if not action.startswith('http'):
             action = "https://protoiptv.com" + action if action.startswith('/') else url
                 
-        print("\nجاري إرسال الطلب إلى السيرفر...")
+        print("\nجاري إرسال الطلب الصحيح والمكتمل إلى السيرفر...")
         post_response = session.post(action, data=form_data, headers=headers)
         
         print(f"رمز استجابة الموقع (Status Code): {post_response.status_code}")
-        print("\n--- أول 500 حرف من رد السيرفر النسيجي ---")
-        print(post_response.text[:500])
         
+        if "wpforms-confirmation" in post_response.text or "Thank you" in post_response.text or post_response.status_code == 200:
+            print("\n✅ تم إرسال جميع الحقول بنجاح ملوّز! شيك على إيميلك الآن.")
+        else:
+            print("\n❌ تم الإرسال ولكن قد يكون هناك نقص في التوثيق.")
+            
     except Exception as e:
         print(f"حدث خطأ أثناء التنفيذ: {str(e)}")
 
