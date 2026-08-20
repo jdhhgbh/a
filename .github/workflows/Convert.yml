@@ -1,10 +1,10 @@
-name: Convert and Save Video to MP4
+name: Fix Video for YouTube
 
 on:
   workflow_dispatch:
 
 jobs:
-  convert:
+  fix_video:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,18 +16,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg curl
 
-      - name: Download and Standardize Container
+      - name: Re-encode to H.264 for YouTube
         run: |
           URL="Https://abra--5e4bd524.api.cosmic-crab.buzz/deb89a087849bd19e2b62fdad50243829b4e47c6/%5Bksz2211%5D%5B265%5D%20%D9%83%D8%A7%D8%A8%D8%AA%D9%86%20%D9%85%D8%A7%D8%AC%D8%AF%20%D8%AC3/Season%2003/S03E01.mp4?api-key=8acbcf1e-732c-4574-a3bf-27e6a85b86f1&download=true&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODczMTUyNDIsInJhdGUiOiI1TSIsInJvbGUiOiJmcmVlIiwic2Vzc2lvbklEIjoiTVRjNE56QTNPVE0zTlh4T2QzZEJUa1pqTTFWR1dreFRNRnBZVkVad1JGTlZXa2hOYTFKR1UwUldUVkpHUmtoVVJrNU1UVEI0VWxWclJrWlVhM1JTVlVWdmVsVkdXVEJXYTNCV1VrVTFURk5XVWtwUmJFVTlmTVZvdC02MlVkVEhWeUxRN3RGTXBZQnM5a3gwdWdDNXVXVGpUT0picVhEWCIsImRvbWFpbiI6IndlYnRvci5pbyIsImFnZW50IjoiTW96aWxsYS81LjAgKExpbnV4OyBBbmRyb2lkIDEyOyBQaXhlbCA0IFhMKSBBcHBsZVdlYktpdC81MzcuMzYgKEtIVE1MLCBsaWtlIEdlY2tvKSBDaHJvbWUvOTYuMC40NjY0LjkyIE1vYmlsZSBTYWZhcmkvNTM3LjM2IiwicmVtb3RlQWRkcmVzcyI6IjIwMDE6MTZhMjpmMDI4OjhjMDA6YzgzZDoyZGFiOjlkZTU6NDI5OCJ9.3sa_IQTAypeaArLMKYSXaGBWTRwystFcBAaL-f2YJC8"
           
-          # تحميل الملف الأصلي
-          curl -L "$URL" -o input_file.tmp
+          curl -L "$URL" -o input.tmp
           
-          # إعادة تغليف الفيديو إلى mp4 بدون إعادة ترميز (نفس الجودة والحجم)
-          ffmpeg -i input_file.tmp -c copy -movflags +faststart "Captain_Majid_S03E01.mp4"
+          # تحويل الفيديو لترخيص H.264 مع نمط ألوان yuv420p الداعم لليوتيوب
+          ffmpeg -i input.tmp -c:v libx264 -pix_fmt yuv420p -crf 18 -preset fast -c:a aac -movflags +faststart "Captain_Majid_YouTube_Ready.mp4"
 
-      - name: Upload MP4 Artifact
+      - name: Upload Fixed Video
         uses: actions/upload-artifact@v4
         with:
-          name: Captain_Majid_S03E01_MP4
-          path: Captain_Majid_S03E01.mp4
+          name: Captain_Majid_YouTube_Ready
+          path: Captain_Majid_YouTube_Ready.mp4
