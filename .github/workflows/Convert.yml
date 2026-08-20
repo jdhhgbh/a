@@ -1,37 +1,33 @@
-name: Convert Video from URL to MP4
+name: Convert and Save Video to MP4
 
 on:
   workflow_dispatch:
-    inputs:
-      video_url:
-        description: 'رابط الفيديو المباشر (Direct Video URL)'
-        required: true
-        type: string
 
 jobs:
   convert:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Install FFmpeg & yt-dlp
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg wget
-          sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
-          sudo chmod a+rx /usr/local/bin/yt-dlp
+          sudo apt-get install -y ffmpeg curl
 
-      - name: Download and Convert Losslessly
+      - name: Download and Standardize Container
         run: |
-          mkdir -p output_videos
-          cd output_videos
+          URL="Https://abra--5e4bd524.api.cosmic-crab.buzz/deb89a087849bd19e2b62fdad50243829b4e47c6/%5Bksz2211%5D%5B265%5D%20%D9%83%D8%A7%D8%A8%D8%AA%D9%86%20%D9%85%D8%A7%D8%AC%D8%AF%20%D8%AC3/Season%2003/S03E01.mp4?api-key=8acbcf1e-732c-4574-a3bf-27e6a85b86f1&download=true&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODczMTUyNDIsInJhdGUiOiI1TSIsInJvbGUiOiJmcmVlIiwic2Vzc2lvbklEIjoiTVRjNE56QTNPVE0zTlh4T2QzZEJUa1pqTTFWR1dreFRNRnBZVkVad1JGTlZXa2hOYTFKR1UwUldUVkpHUmtoVVJrNU1UVEI0VWxWclJrWlVhM1JTVlVWdmVsVkdXVEJXYTNCV1VrVTFURk5XVWtwUmJFVTlmTVZvdC02MlVkVEhWeUxRN3RGTXBZQnM5a3gwdWdDNXVXVGpUT0picVhEWCIsImRvbWFpbiI6IndlYnRvci5pbyIsImFnZW50IjoiTW96aWxsYS81LjAgKExpbnV4OyBBbmRyb2lkIDEyOyBQaXhlbCA0IFhMKSBBcHBsZVdlYktpdC81MzcuMzYgKEtIVE1MLCBsaWtlIEdlY2tvKSBDaHJvbWUvOTYuMC40NjY0LjkyIE1vYmlsZSBTYWZhcmkvNTM3LjM2IiwicmVtb3RlQWRkcmVzcyI6IjIwMDE6MTZhMjpmMDI4OjhjMDA6YzgzZDoyZGFiOjlkZTU6NDI5OCJ9.3sa_IQTAypeaArLMKYSXaGBWTRwystFcBAaL-f2YJC8"
           
-          # تنزيل الفيديو وتغيير الحاوية إلى MP4 دون تقليل الجودة
-          yt-dlp "${{ github.event.inputs.video_url }}" \
-            --recode-video mp4 \
-            --postprocessor-args "ffmpeg:-c copy" \
-            -o "converted_video.%(ext)s"
+          # تحميل الملف الأصلي
+          curl -L "$URL" -o input_file.tmp
+          
+          # إعادة تغليف الفيديو إلى mp4 بدون إعادة ترميز (نفس الجودة والحجم)
+          ffmpeg -i input_file.tmp -c copy -movflags +faststart "Captain_Majid_S03E01.mp4"
 
-      - name: Upload Converted Video as Artifact
+      - name: Upload MP4 Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: converted-mp4-video
-          path: output_videos/
+          name: Captain_Majid_S03E01_MP4
+          path: Captain_Majid_S03E01.mp4
