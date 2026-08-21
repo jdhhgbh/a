@@ -1,39 +1,74 @@
-name: Video Stabilization Workflow
+name: Pure GitHub Video Generator
 
 on:
   workflow_dispatch:
     inputs:
-      video_url:
-        description: 'رابط مباشر للفيديو المراد تعديله'
+      text_prompt:
+        description: 'اكتب النص أو الفكرة العشوائية'
         required: true
+        default: 'فيل يطير وهو يضحك في السماء!'
 
 jobs:
-  stabilize:
+  build-video:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install FFmpeg with vidstab
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies & FFmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          pip install gTTS moviepy pillow numpy
 
-      - name: Download Video
+      - name: Generate Random Video Script
         run: |
-          curl -L "${{ github.event.inputs.video_url }}" -o input.mp4
+          python -c "
+          import os
+          import random
+          from gtts import gTTS
+          from moviepy.editor import TextClip, ColorClip, CompositeVideoClip, AudioFileClip, vfx
 
-      - name: Pass 1 - Analyze Shaking
-        run: |
-          ffmpeg -i input.mp4 -vf vidstabdetect=stepsize=6:shakiness=8:accuracy=15:result=transforms.trf -f null -
+          prompt = '''${{ github.event.inputs.text_prompt }}'''
 
-      - name: Pass 2 - Stabilize Video
-        run: |
-          ffmpeg -i input.mp4 -vf vidstabtransform=smoothing=30:input=transforms.trf -c:a copy output.mp4
+          # 1. تحويل النص إلى صوت (عربي/إنجليزي تلقائياً)
+          tts = gTTS(text=prompt, lang='ar')
+          audio_path = 'voice.mp3'
+          tts.save(audio_path)
+          audio = AudioFileClip(audio_path)
 
-      - name: Upload Stabilized Video
+          # 2. إنشاء خلفية ملونة عشوائية ومتحركة
+          bg_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+          duration = max(audio.duration + 2, 5)
+          bg = ColorClip(size=(1080, 1920), color=bg_color, duration=duration)
+
+          # 3. إنشاء النص المعروض وسط الفيديو
+          txt_clip = TextClip(
+              prompt,
+              fontsize=70,
+              color='white',
+              font='DejaVu-Sans-Bold',
+              method='caption',
+              size=(900, None)
+          ).set_duration(duration).set_position('center')
+
+          # 4. إضافة تأثير عشوائي (تغيير الألوان والاهتزاز)
+          txt_clip = txt_clip.fx(vfx.colorx, 1.2)
+
+          # 5. دمج الصوت والفيديو
+          final = CompositeVideoClip([bg, txt_clip]).set_audio(audio)
+          final.write_videofile('output_random_video.mp4', fps=24, codec='libx264', audio_codec='aac')
+          "
+
+      - name: Upload Video
         uses: actions/upload-artifact@v4
         with:
-          name: stabilized-video
-          path: output.mp4
+          name: generated-video
+          path: output_random_video.mp4
