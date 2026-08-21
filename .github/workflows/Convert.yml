@@ -1,38 +1,39 @@
-name: Convert Video to YouTube Ready
+name: Video Stabilization Workflow
 
 on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'ضع رابط الفيديو هنا'
+        description: 'رابط مباشر للفيديو المراد تعديله'
         required: true
-        type: string
 
 jobs:
-  fix_video:
+  stabilize:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install FFmpeg & Curl
+      - name: Install FFmpeg with vidstab
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg curl
+          sudo apt-get install -y ffmpeg
 
-      - name: Download and Re-encode Video
+      - name: Download Video
         run: |
-          URL="${{ github.event.inputs.video_url }}"
-          
-          # تحميل الملف
-          curl -L "$URL" -o input.tmp
-          
-          # معالجة الفيديو للحجم المناسب والجودة الممتازة بدون شاشة سوداء
-          ffmpeg -i input.tmp -c:v libx264 -pix_fmt yuv420p -crf 23 -preset medium -c:a aac -b:a 128k -movflags +faststart "output_ready.mp4"
+          curl -L "${{ github.event.inputs.video_url }}" -o input.mp4
 
-      - name: Upload Processed Video
+      - name: Pass 1 - Analyze Shaking
+        run: |
+          ffmpeg -i input.mp4 -vf vidstabdetect=stepsize=6:shakiness=8:accuracy=15:result=transforms.trf -f null -
+
+      - name: Pass 2 - Stabilize Video
+        run: |
+          ffmpeg -i input.mp4 -vf vidstabtransform=smoothing=30:input=transforms.trf -c:a copy output.mp4
+
+      - name: Upload Stabilized Video
         uses: actions/upload-artifact@v4
         with:
-          name: converted_episode
-          path: output_ready.mp4
+          name: stabilized-video
+          path: output.mp4
